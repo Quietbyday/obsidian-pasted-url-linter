@@ -1,11 +1,11 @@
 {
 	"name": "obsidian-paste-youtube-timestamp",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"description": "Converts pasted YouTube timestamp URLs into readable Markdown links",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc --outDir dist --module commonjs --target es2018 --skipLibCheck --esModuleInterop true src/main.ts src/utils/timestamp.ts && node bundle.js",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"devDependencies": {
