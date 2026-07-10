@@ -3,6 +3,7 @@ import {
 	PastedUrlLinterSettings,
 	DEFAULT_SETTINGS,
 	PastedUrlLinterSettingTab,
+	migrateSettings,
 } from './settings';
 import { transformPaste } from './utils/transform';
 
@@ -38,7 +39,13 @@ export default class PastedUrlLinterPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const raw = await this.loadData();
+		const { settings, migrated } = migrateSettings(raw);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, settings);
+		// Persist the migrated shape so the old v0.2.0 keys are cleaned up.
+		if (migrated) {
+			await this.saveSettings();
+		}
 	}
 
 	async saveSettings() {

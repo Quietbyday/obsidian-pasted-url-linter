@@ -1,5 +1,5 @@
 import { isYouTubeTimestampUrl, formatAsMarkdownLink } from './timestamp';
-import { stripUtmParams, stripAmazonRef } from './urlCleaners';
+import { cleanTrackingParams, cleanAmazonUrl } from './urlCleaners';
 import { parseMarkdownLink, buildMarkdownLink } from './markdownLink';
 import type { PastedUrlLinterSettings } from '../settings';
 
@@ -10,39 +10,54 @@ export interface PasteTransform {
 	notice: string;
 }
 
-/** Runs the enabled UTM/Amazon cleaners over a URL, tracking which fired. */
-function cleanUrl(
-	url: string,
-	settings: PastedUrlLinterSettings
-): { clean: string; utm: boolean; amazon: boolean } {
+interface CleanResult {
+	clean: string;
+	amazon: boolean;
+	removedCount: number;
+}
+
+/**
+ * Runs the enabled cleaners over a URL. Amazon canonicalisation runs first
+ * (path rewrite, which also discards the query), then tracking-parameter and
+ * fragment cleaning.
+ */
+function cleanUrl(url: string, settings: PastedUrlLinterSettings): CleanResult {
 	let clean = url;
 
-	let utm = false;
-	if (settings.stripUtm) {
-		const next = stripUtmParams(clean);
-		if (next !== clean) {
-			utm = true;
-			clean = next;
-		}
-	}
-
 	let amazon = false;
-	if (settings.stripAmazonRef) {
-		const next = stripAmazonRef(clean);
+	if (settings.cleanAmazonLinks) {
+		const next = cleanAmazonUrl(clean);
 		if (next !== clean) {
 			amazon = true;
 			clean = next;
 		}
 	}
 
-	return { clean, utm, amazon };
+	let removedCount = 0;
+	if (settings.stripTrackingParams) {
+		const res = cleanTrackingParams(clean);
+		if (res.url !== clean) {
+			clean = res.url;
+			removedCount = res.removedCount;
+		}
+	}
+
+	return { clean, amazon, removedCount };
 }
 
 /** Picks the Notice message based on which cleaners changed the URL. */
-function cleanerNotice(utm: boolean, amazon: boolean): string {
-	if (utm && amazon) return 'Cleaned pasted URL';
-	if (amazon) return 'Stripped Amazon ref code';
-	return 'Stripped tracking parameters';
+function cleanerNotice(amazon: boolean, removedCount: number): string {
+	if (amazon && removedCount > 0) {
+		return `Cleaned Amazon link · removed ${removedCount} parameter${
+			removedCount === 1 ? '' : 's'
+		}`;
+	}
+	if (amazon) {
+		return 'Cleaned Amazon link';
+	}
+	return `Removed ${removedCount} tracking parameter${
+		removedCount === 1 ? '' : 's'
+	}`;
 }
 
 /** Returns true if `text` parses as a URL on its own. */
@@ -80,11 +95,11 @@ export function transformPaste(
 	// Rules 2 & 3 on a Markdown link.
 	const md = parseMarkdownLink(text);
 	if (md) {
-		const { clean, utm, amazon } = cleanUrl(md.url, settings);
+		const { clean, amazon, removedCount } = cleanUrl(md.url, settings);
 		if (clean !== md.url) {
 			return {
 				result: buildMarkdownLink(md.text, clean),
-				notice: cleanerNotice(utm, amazon),
+				notice: cleanerNotice(amazon, removedCount),
 			};
 		}
 		return null;
@@ -92,11 +107,11 @@ export function transformPaste(
 
 	// Rules 2 & 3 on a bare URL (opt-in).
 	if (settings.cleanBareUrls && isBareUrl(text)) {
-		const { clean, utm, amazon } = cleanUrl(text, settings);
+		const { clean, amazon, removedCount } = cleanUrl(text, settings);
 		if (clean !== text) {
 			return {
 				result: clean,
-				notice: cleanerNotice(utm, amazon),
+				notice: cleanerNotice(amazon, removedCount),
 			};
 		}
 	}

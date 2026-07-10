@@ -19,9 +19,11 @@ Get this:
 [1:55](https://youtu.be/49V-5Ock8LU?t=115)
 ```
 
-### 2. Strip UTM tracking parameters
+### 2. Strip tracking parameters
 
-When you paste a Markdown link whose URL carries `utm_*` tracking parameters, the plugin removes them (and any trailing `#fragment`), keeping the link text and any genuine query parameters.
+When you paste a Markdown link, the plugin removes a broad list of known tracking parameters — `utm_*` and other `utm_`-style families, ad and click IDs (`gclid`, `fbclid`, `igshid`, `msclkid`, …), affiliate tags, email-campaign IDs, and more — while keeping the link text and any genuine query parameters. The list is case-insensitive and also matches by prefix, so a brand-new `utm_something` is caught too.
+
+Tracking data hidden in the `#fragment` is cleaned intelligently: real anchors (`#body`, `#section`) and single-page-app routes (`#/path`) are preserved, and only fragments that are actually encoded tracking data are removed.
 
 Paste this:
 ```
@@ -29,12 +31,15 @@ Paste this:
 ```
 Get this:
 ```
-[Rubber Band Powered Cup Launcher | KiwiCo](https://www.kiwico.com/diy/stem/motion-mechanics/rubber-band-powered-cup-launcher)
+[Rubber Band Powered Cup Launcher | KiwiCo](https://www.kiwico.com/diy/stem/motion-mechanics/rubber-band-powered-cup-launcher#body)
 ```
+(The `#body` anchor is now kept, because it is a real anchor rather than tracking data.)
 
-### 3. Strip Amazon reference codes
+The broader list includes some aggressive generic names (`ref`, `tag`, `source`, `campaign`, …). These clean far more, but can occasionally strip a legitimate parameter such as a blog's `?tag=`; turn the rule off if that ever gets in your way.
 
-When you paste a Markdown link to an Amazon page, the plugin removes the `/ref=…` reference code and everything after it, leaving a clean product link.
+### 3. Clean Amazon product links
+
+When you paste a Markdown link to an Amazon product page, the plugin shortens it to its canonical `…/dp/<ASIN>` (or `…/gp/product/<ASIN>`) form, dropping the `/ref=…` code, query, and fragment.
 
 Paste this:
 ```
@@ -47,7 +52,7 @@ Get this:
 
 ### Also clean bare URLs (optional)
 
-By default, the UTM and Amazon cleaners only act on Markdown links (`[text](url)`). Turn on **Also clean bare URLs** to have them clean plain pasted URLs too — the result stays a bare URL.
+By default, the tracking and Amazon cleaners only act on Markdown links (`[text](url)`). Turn on **Also clean bare URLs** to have them clean plain pasted URLs too — the result stays a bare URL.
 
 ## Use case
 
@@ -77,6 +82,13 @@ To update to the latest beta version, go to BRAT and click **Check for updates**
 [Quietbday](https://github.com/quietbyday)
 
 ## Changelog
+
+### 0.3.0 (beta)
+- Replaced the UTM-only cleaner with a much broader **tracking-parameter** engine, built from a merged list of ~120 known trackers (synthesised from the *Eraser* and *clean-url* extensions), with case-insensitive and prefix matching
+- Added **smart fragment handling**: real anchors (`#body`, `#section`) and SPA routes (`#/path`) are now preserved, and only encoded tracking data in the fragment is removed
+- Amazon cleaning is now **canonicalisation** — links are shortened to `…/dp/<ASIN>` rather than just cutting at `/ref=`
+- Notifications now report how many tracking parameters were removed
+- Renamed the settings toggles (**Strip tracking parameters**, **Clean Amazon product links**); existing settings are migrated automatically
 
 ### 0.2.0 (beta)
 - Renamed to **Pasted URL Linter** — broadened from YouTube timestamps into general paste-time URL cleanup

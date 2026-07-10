@@ -4,20 +4,61 @@ import type PastedUrlLinterPlugin from './main';
 export interface PastedUrlLinterSettings {
 	/** Convert pasted YouTube timestamp URLs into readable Markdown links. */
 	youtubeTimestamp: boolean;
-	/** Strip utm_* tracking parameters (and the fragment) from pasted links. */
-	stripUtm: boolean;
-	/** Strip Amazon /ref= reference codes from pasted links. */
-	stripAmazonRef: boolean;
-	/** Also apply the UTM/Amazon cleaners to bare (non-Markdown) pasted URLs. */
+	/** Strip tracking parameters (and tracking fragments) from pasted links. */
+	stripTrackingParams: boolean;
+	/** Canonicalise Amazon product links down to `…/dp/<ASIN>`. */
+	cleanAmazonLinks: boolean;
+	/** Also apply the cleaners to bare (non-Markdown) pasted URLs. */
 	cleanBareUrls: boolean;
 }
 
 export const DEFAULT_SETTINGS: PastedUrlLinterSettings = {
 	youtubeTimestamp: true,
-	stripUtm: true,
-	stripAmazonRef: true,
+	stripTrackingParams: true,
+	cleanAmazonLinks: true,
 	cleanBareUrls: false,
 };
+
+/**
+ * Carries values over from the v0.2.0 setting keys (`stripUtm`,
+ * `stripAmazonRef`) to their v0.3.0 replacements when the old keys are present
+ * and the new ones are not. Returns a settings-shaped object with the old keys
+ * removed, plus a `migrated` flag so the caller knows whether to re-save.
+ */
+export function migrateSettings(raw: unknown): {
+	settings: Partial<PastedUrlLinterSettings>;
+	migrated: boolean;
+} {
+	if (!raw || typeof raw !== 'object') {
+		return { settings: {}, migrated: false };
+	}
+
+	const data = { ...(raw as Record<string, unknown>) };
+	let migrated = false;
+
+	if (data.stripUtm !== undefined && data.stripTrackingParams === undefined) {
+		data.stripTrackingParams = data.stripUtm;
+		migrated = true;
+	}
+	if (
+		data.stripAmazonRef !== undefined &&
+		data.cleanAmazonLinks === undefined
+	) {
+		data.cleanAmazonLinks = data.stripAmazonRef;
+		migrated = true;
+	}
+
+	if (data.stripUtm !== undefined || data.stripAmazonRef !== undefined) {
+		delete data.stripUtm;
+		delete data.stripAmazonRef;
+		migrated = true;
+	}
+
+	return {
+		settings: data as Partial<PastedUrlLinterSettings>,
+		migrated,
+	};
+}
 
 export class PastedUrlLinterSettingTab extends PluginSettingTab {
 	plugin: PastedUrlLinterPlugin;
@@ -46,29 +87,29 @@ export class PastedUrlLinterSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Strip UTM tracking parameters')
+			.setName('Strip tracking parameters')
 			.setDesc(
-				'Remove utm_* parameters and any trailing #fragment from a pasted Markdown link, keeping other query parameters.'
+				'Remove a broad list of tracking parameters (utm_*, gclid, fbclid, igshid, affiliate tags, and more) plus any tracking data hidden in the #fragment. Real anchors and other query parameters are kept.'
 			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.stripUtm)
+					.setValue(this.plugin.settings.stripTrackingParams)
 					.onChange(async (value) => {
-						this.plugin.settings.stripUtm = value;
+						this.plugin.settings.stripTrackingParams = value;
 						await this.plugin.saveSettings();
 					})
 			);
 
 		new Setting(containerEl)
-			.setName('Strip Amazon reference codes')
+			.setName('Clean Amazon product links')
 			.setDesc(
-				'Remove the /ref=… segment (and everything after it) from pasted Amazon Markdown links.'
+				'Shorten an Amazon product link to its canonical …/dp/<ASIN> form, dropping the /ref=… code, query, and fragment.'
 			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.stripAmazonRef)
+					.setValue(this.plugin.settings.cleanAmazonLinks)
 					.onChange(async (value) => {
-						this.plugin.settings.stripAmazonRef = value;
+						this.plugin.settings.cleanAmazonLinks = value;
 						await this.plugin.saveSettings();
 					})
 			);
@@ -76,7 +117,7 @@ export class PastedUrlLinterSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Also clean bare URLs')
 			.setDesc(
-				'Apply the UTM and Amazon cleaners to plain pasted URLs too, not just Markdown links. The result stays a bare URL.'
+				'Apply the tracking and Amazon cleaners to plain pasted URLs too, not just Markdown links. The result stays a bare URL.'
 			)
 			.addToggle((toggle) =>
 				toggle
