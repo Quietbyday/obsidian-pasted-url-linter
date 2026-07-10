@@ -1,9 +1,9 @@
 {
 	"id": "pasted-url-linter",
 	"name": "Pasted URL Linter",
-	"version": "0.1.1-beta",
+	"version": "0.2.0-beta",
 	"minAppVersion": "0.15.0",
-	"description": "Cleans up and formats URLs pasted into your notes, starting with YouTube timestamp links.",
+	"description": "Cleans up URLs as you paste them: YouTube timestamp links, UTM tracking parameters, and Amazon reference codes.",
 	"author": "Quietbday",
 	"isDesktopOnly": false
 }

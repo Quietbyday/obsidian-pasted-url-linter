@@ -1,7 +1,7 @@
 {
 	"name": "pasted-url-linter",
-	"version": "0.1.1-beta",
-	"description": "Cleans up and formats URLs pasted into your notes, starting with YouTube timestamp links.",
+	"version": "0.2.0-beta",
+	"description": "Cleans up URLs as you paste them: YouTube timestamp links, UTM tracking parameters, and Amazon reference codes.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
