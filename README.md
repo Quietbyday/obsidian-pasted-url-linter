@@ -1,6 +1,6 @@
-# Paste YouTube Timestamp
+# Pasted URL Linter
 
-An [Obsidian](https://obsidian.md) plugin that automatically converts pasted YouTube timestamp links into clean, readable Markdown links.
+An [Obsidian](https://obsidian.md) plugin that cleans up and formats URLs as you paste them into your notes. It started as a YouTube-timestamp formatter and is growing into a general URL linter.
 
 ## Usage
 
@@ -37,9 +37,9 @@ The plugin recognises timestamp links from all standard YouTube URL formats:
 1. Install the **BRAT** plugin from the Obsidian Community Plugins store.
 2. Go to **Settings → Community plugins → BRAT** .
 3. Click **Add Beta plugin**.
-4. Paste the following repository URL: `https://github.com/Quietbyday/obsidian-paste-youtube-timestamp`
+4. Paste the following repository URL: `https://github.com/Quietbyday/obsidian-pasted-url-linter`
 5. Click **Add Plugin**. 
-6. Enable **"Paste YouTube Timestamp"** in Community plugins.
+6. Enable **"Pasted URL Linter"** in Community plugins.
 
 To update to the latest beta version, go to BRAT and click **Check for updates** (or restart Obsidian).
 

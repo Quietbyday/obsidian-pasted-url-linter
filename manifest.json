@@ -1,9 +1,9 @@
 {
-	"id": "paste-youtube-timestamp",
-	"name": "Paste YouTube Timestamp",
+	"id": "pasted-url-linter",
+	"name": "Pasted URL Linter",
 	"version": "0.1.1-beta",
 	"minAppVersion": "0.15.0",
-	"description": "Converts pasted YouTube timestamp URLs into readable Markdown links",
+	"description": "Cleans up and formats URLs pasted into your notes, starting with YouTube timestamp links.",
 	"author": "Quietbday",
 	"isDesktopOnly": false
 }
