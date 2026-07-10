@@ -83,6 +83,9 @@ To update to the latest beta version, go to BRAT and click **Check for updates**
 
 ## Changelog
 
+### 0.3.1 (beta)
+- Fixed a bug where a converted paste (e.g. a YouTube timestamp link) could be inserted twice, producing a doubled link, when Obsidian dispatched the paste event more than once
+
 ### 0.3.0 (beta)
 - Replaced the UTM-only cleaner with a much broader **tracking-parameter** engine, built from a merged list of ~120 known trackers (synthesised from the *Eraser* and *clean-url* extensions), with case-insensitive and prefix matching
 - Added **smart fragment handling**: real anchors (`#body`, `#section`) and SPA routes (`#/path`) are now preserved, and only encoded tracking data in the fragment is removed

@@ -26,6 +26,15 @@ export default class PastedUrlLinterPlugin extends Plugin {
 	}
 
 	private handlePaste(evt: ClipboardEvent, editor: Editor): void {
+		// Obsidian can dispatch the same `editor-paste` event to this handler
+		// more than once (notably in Live Preview). Without this guard the
+		// replacement is inserted twice, producing a doubled link. Once we've
+		// handled a paste we call preventDefault(), so a repeat delivery of the
+		// same event is skipped here.
+		if (evt.defaultPrevented) {
+			return;
+		}
+
 		const text = evt.clipboardData?.getData('text/plain') ?? '';
 
 		const transformed = transformPaste(text, this.settings);

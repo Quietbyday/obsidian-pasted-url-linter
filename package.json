@@ -1,6 +1,6 @@
 {
 	"name": "pasted-url-linter",
-	"version": "0.3.0-beta",
+	"version": "0.3.1-beta",
 	"description": "Cleans up URLs as you paste them: YouTube timestamp links, tracking parameters, and Amazon product links.",
 	"main": "main.js",
 	"scripts": {
