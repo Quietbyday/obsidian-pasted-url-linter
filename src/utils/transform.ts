@@ -1,6 +1,8 @@
 import { isYouTubeTimestampUrl, formatAsMarkdownLink } from './timestamp';
 import { cleanTrackingParams, cleanAmazonUrl } from './urlCleaners';
 import { parseMarkdownLink, buildMarkdownLink } from './markdownLink';
+import { stripNotificationCount } from './linkTitle';
+import { parseDomainList, domainMatches } from './domainList';
 import type { PastedUrlLinterSettings } from '../settings';
 
 export interface PasteTransform {
@@ -34,7 +36,11 @@ function cleanUrl(url: string, settings: PastedUrlLinterSettings): CleanResult {
 	}
 
 	let removedCount = 0;
-	if (settings.stripTrackingParams) {
+	const trackingExcepted = domainMatches(
+		url,
+		parseDomainList(settings.trackingParamExceptions)
+	);
+	if (settings.stripTrackingParams && !trackingExcepted) {
 		const res = cleanTrackingParams(clean);
 		if (res.url !== clean) {
 			clean = res.url;
@@ -58,6 +64,26 @@ function cleanerNotice(amazon: boolean, removedCount: number): string {
 	return `Removed ${removedCount} tracking parameter${
 		removedCount === 1 ? '' : 's'
 	}`;
+}
+
+/**
+ * Builds the Notice for a Markdown link, combining the title-strip message with
+ * the URL cleaner message when both changed.
+ */
+function markdownNotice(
+	titleChanged: boolean,
+	urlChanged: boolean,
+	amazon: boolean,
+	removedCount: number
+): string {
+	const parts: string[] = [];
+	if (titleChanged) {
+		parts.push('Removed notification count');
+	}
+	if (urlChanged) {
+		parts.push(cleanerNotice(amazon, removedCount));
+	}
+	return parts.join(' · ');
 }
 
 /** Returns true if `text` parses as a URL on its own. */
@@ -96,10 +122,26 @@ export function transformPaste(
 	const md = parseMarkdownLink(text);
 	if (md) {
 		const { clean, amazon, removedCount } = cleanUrl(md.url, settings);
-		if (clean !== md.url) {
+		const stripCounts =
+			settings.stripNotificationCounts &&
+			domainMatches(
+				md.url,
+				parseDomainList(settings.notificationCountDomains)
+			);
+		const title = stripCounts
+			? stripNotificationCount(md.text)
+			: { title: md.text, changed: false };
+
+		const urlChanged = clean !== md.url;
+		if (urlChanged || title.changed) {
 			return {
-				result: buildMarkdownLink(md.text, clean),
-				notice: cleanerNotice(amazon, removedCount),
+				result: buildMarkdownLink(title.title, clean),
+				notice: markdownNotice(
+					title.changed,
+					urlChanged,
+					amazon,
+					removedCount
+				),
 			};
 		}
 		return null;

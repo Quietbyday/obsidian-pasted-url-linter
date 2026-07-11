@@ -1,7 +1,7 @@
 {
 	"id": "pasted-url-linter",
 	"name": "Pasted URL Linter",
-	"version": "0.3.1-beta",
+	"version": "0.3.2-beta",
 	"minAppVersion": "0.15.0",
 	"description": "Cleans up URLs as you paste them: YouTube timestamp links, tracking parameters, and Amazon product links.",
 	"author": "Quietbday",

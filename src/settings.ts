@@ -6,8 +6,20 @@ export interface PastedUrlLinterSettings {
 	youtubeTimestamp: boolean;
 	/** Strip tracking parameters (and tracking fragments) from pasted links. */
 	stripTrackingParams: boolean;
+	/**
+	 * Comma/newline-separated domains to EXEMPT from tracking-parameter
+	 * cleaning (e.g. a site where a query is a real search, not a tracker).
+	 */
+	trackingParamExceptions: string;
 	/** Canonicalise Amazon product links down to `…/dp/<ASIN>`. */
 	cleanAmazonLinks: boolean;
+	/** Strip notification/badge counts like `(14)` from Markdown link titles. */
+	stripNotificationCounts: boolean;
+	/**
+	 * Comma/newline-separated whitelist of domains the notification-count strip
+	 * applies to. Empty means it applies to no domains.
+	 */
+	notificationCountDomains: string;
 	/** Also apply the cleaners to bare (non-Markdown) pasted URLs. */
 	cleanBareUrls: boolean;
 }
@@ -15,7 +27,10 @@ export interface PastedUrlLinterSettings {
 export const DEFAULT_SETTINGS: PastedUrlLinterSettings = {
 	youtubeTimestamp: true,
 	stripTrackingParams: true,
+	trackingParamExceptions: '',
 	cleanAmazonLinks: true,
+	stripNotificationCounts: true,
+	notificationCountDomains: 'x.com, facebook.com, youtube.com, google.com',
 	cleanBareUrls: false,
 };
 
@@ -97,8 +112,26 @@ export class PastedUrlLinterSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.stripTrackingParams = value;
 						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
+
+		if (this.plugin.settings.stripTrackingParams) {
+			new Setting(containerEl)
+				.setName('Tracking-parameter exceptions')
+				.setDesc(
+					'Domains to leave untouched by the tracking-parameter cleaner — one per line or comma-separated. Use this when cleaning would break a real query or reference on a site (e.g. a search URL). Subdomains are included automatically, so example.com also covers www.example.com.'
+				)
+				.addTextArea((text) =>
+					text
+						.setPlaceholder('example.com, another-site.org')
+						.setValue(this.plugin.settings.trackingParamExceptions)
+						.onChange(async (value) => {
+							this.plugin.settings.trackingParamExceptions = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
 
 		new Setting(containerEl)
 			.setName('Clean Amazon product links')
@@ -113,6 +146,38 @@ export class PastedUrlLinterSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		new Setting(containerEl)
+			.setName('Strip notification counts')
+			.setDesc(
+				'Remove a notification/badge count like (14) or (20+) from a pasted Markdown link title, e.g. [(14) Home / X] becomes [Home / X] and [Inbox (47) - Gmail] becomes [Inbox - Gmail]. Only short counts (up to 3 digits) are removed, so numbers like a year (2049) are kept.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.stripNotificationCounts)
+					.onChange(async (value) => {
+						this.plugin.settings.stripNotificationCounts = value;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
+
+		if (this.plugin.settings.stripNotificationCounts) {
+			new Setting(containerEl)
+				.setName('Notification-count domains')
+				.setDesc(
+					'Only strip notification counts from links on these domains — one per line or comma-separated. If this list is empty, no counts are stripped. Subdomains are included automatically, so google.com also covers mail.google.com.'
+				)
+				.addTextArea((text) =>
+					text
+						.setPlaceholder('x.com, facebook.com, youtube.com, google.com')
+						.setValue(this.plugin.settings.notificationCountDomains)
+						.onChange(async (value) => {
+							this.plugin.settings.notificationCountDomains = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
 
 		new Setting(containerEl)
 			.setName('Also clean bare URLs')

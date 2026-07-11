@@ -31,6 +31,8 @@ const { cleanTrackingParams, cleanAmazonUrl, cleanHashFragment } = require(dist(
 	'utils/urlCleaners.js'
 ));
 const { isTrackingParam } = require(dist('utils/trackingParams.js'));
+const { stripNotificationCount } = require(dist('utils/linkTitle.js'));
+const { parseDomainList, domainMatches } = require(dist('utils/domainList.js'));
 const { transformPaste } = require(dist('utils/transform.js'));
 const { migrateSettings, DEFAULT_SETTINGS } = require(dist('settings.js'));
 
@@ -206,6 +208,192 @@ test('isTrackingParam: exact, prefix, and negatives', () => {
 	assert.ok(isTrackingParam('mtm_anything')); // prefix
 	assert.ok(!isTrackingParam('q'));
 	assert.ok(!isTrackingParam('page'));
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Rule C — notification counts (stripNotificationCount)
+// ─────────────────────────────────────────────────────────────────────────
+
+test('count: leading (14) stripped', () => {
+	const r = stripNotificationCount('(14) Home / X');
+	assert.strictEqual(r.title, 'Home / X');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: leading (20+) stripped', () => {
+	const r = stripNotificationCount('(20+) Facebook');
+	assert.strictEqual(r.title, 'Facebook');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: leading (8) stripped', () => {
+	const r = stripNotificationCount('(8) YouTube');
+	assert.strictEqual(r.title, 'YouTube');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: embedded Gmail (47) stripped, single space kept', () => {
+	const r = stripNotificationCount(
+		'Inbox (47) - quietbyday@gmail.com - Gmail'
+	);
+	assert.strictEqual(r.title, 'Inbox - quietbyday@gmail.com - Gmail');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: embedded token at end trimmed cleanly', () => {
+	const r = stripNotificationCount('Messages (5)');
+	assert.strictEqual(r.title, 'Messages');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: only the first (leading) count removed', () => {
+	const r = stripNotificationCount('(3) Foo (5)');
+	assert.strictEqual(r.title, 'Foo (5)');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: 4-digit year (2049) is NOT a count', () => {
+	const r = stripNotificationCount('Blade Runner (2049)');
+	assert.strictEqual(r.title, 'Blade Runner (2049)');
+	assert.strictEqual(r.changed, false);
+});
+
+test('count: 4-digit year (2023) is NOT a count', () => {
+	const r = stripNotificationCount('Report (2023)');
+	assert.strictEqual(r.title, 'Report (2023)');
+	assert.strictEqual(r.changed, false);
+});
+
+test('count: number glued to text is NOT stripped', () => {
+	const r = stripNotificationCount('abc(3)def');
+	assert.strictEqual(r.title, 'abc(3)def');
+	assert.strictEqual(r.changed, false);
+});
+
+test('count: no count is a no-op', () => {
+	const r = stripNotificationCount('Just a title');
+	assert.strictEqual(r.title, 'Just a title');
+	assert.strictEqual(r.changed, false);
+});
+
+test('count: max 3-digit count (999) stripped', () => {
+	const r = stripNotificationCount('(999) Notifications');
+	assert.strictEqual(r.title, 'Notifications');
+	assert.strictEqual(r.changed, true);
+});
+
+test('count: 4-digit count (1000) not stripped', () => {
+	const r = stripNotificationCount('(1000) Notifications');
+	assert.strictEqual(r.title, '(1000) Notifications');
+	assert.strictEqual(r.changed, false);
+});
+
+test('transform: markdown title count → title-only notice', () => {
+	const out = transformPaste('[(14) Home / X](https://x.com/home)', settings());
+	assert.strictEqual(out.result, '[Home / X](https://x.com/home)');
+	assert.strictEqual(out.notice, 'Removed notification count');
+});
+
+test('transform: Gmail embedded count stripped', () => {
+	const out = transformPaste(
+		'[Inbox (47) - quietbyday@gmail.com - Gmail](https://mail.google.com/mail/u/0/#inbox)',
+		settings()
+	);
+	assert.strictEqual(
+		out.result,
+		'[Inbox - quietbyday@gmail.com - Gmail](https://mail.google.com/mail/u/0/#inbox)'
+	);
+	assert.strictEqual(out.notice, 'Removed notification count');
+});
+
+test('transform: title count + tracking param → combined notice', () => {
+	const out = transformPaste(
+		'[(3) News](https://e.com/p?utm_source=a&keep=1)',
+		settings({ notificationCountDomains: 'e.com' })
+	);
+	assert.strictEqual(out.result, '[News](https://e.com/p?keep=1)');
+	assert.strictEqual(
+		out.notice,
+		'Removed notification count · Removed 1 tracking parameter'
+	);
+});
+
+test('transform: stripNotificationCounts OFF → title kept', () => {
+	const out = transformPaste(
+		'[(14) Home / X](https://x.com/home)',
+		settings({ stripNotificationCounts: false })
+	);
+	assert.strictEqual(out, null);
+});
+
+test('transform: year in title NOT stripped (whitelisted domain)', () => {
+	const out = transformPaste(
+		'[Blade Runner (2049)](https://x.com/movie)',
+		settings()
+	);
+	assert.strictEqual(out, null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Domain lists — whitelist (notification) + exceptions (trackers)
+// ─────────────────────────────────────────────────────────────────────────
+
+test('domainList: parse handles commas, newlines, www, scheme, paths', () => {
+	assert.deepStrictEqual(
+		parseDomainList('x.com, www.facebook.com\nhttps://mail.google.com/inbox'),
+		['x.com', 'facebook.com', 'mail.google.com']
+	);
+});
+
+test('domainList: empty / whitespace-only → empty array', () => {
+	assert.deepStrictEqual(parseDomainList(''), []);
+	assert.deepStrictEqual(parseDomainList('  ,\n , '), []);
+});
+
+test('domainList: match is subdomain-inclusive, empty never matches', () => {
+	assert.ok(domainMatches('https://x.com/home', ['x.com']));
+	assert.ok(domainMatches('https://www.x.com/home', ['x.com']));
+	assert.ok(domainMatches('https://mail.google.com/u/0', ['google.com']));
+	assert.ok(!domainMatches('https://notx.com/home', ['x.com']));
+	assert.ok(!domainMatches('https://x.com/home', []));
+});
+
+test('transform: count NOT stripped on non-whitelisted domain', () => {
+	const out = transformPaste('[(14) Home](https://not-listed.com/home)', settings());
+	assert.strictEqual(out, null);
+});
+
+test('transform: empty whitelist strips nowhere', () => {
+	const out = transformPaste(
+		'[(14) Home / X](https://x.com/home)',
+		settings({ notificationCountDomains: '' })
+	);
+	assert.strictEqual(out, null);
+});
+
+test('transform: tracking params skipped for excepted domain', () => {
+	const out = transformPaste(
+		'[Search](https://e.com/search?q=cups&utm_source=a)',
+		settings({ trackingParamExceptions: 'e.com' })
+	);
+	assert.strictEqual(out, null);
+});
+
+test('transform: exception is subdomain-inclusive', () => {
+	const out = transformPaste(
+		'[Search](https://shop.e.com/search?utm_source=a)',
+		settings({ trackingParamExceptions: 'e.com' })
+	);
+	assert.strictEqual(out, null);
+});
+
+test('transform: unlisted domain still cleaned when exceptions set', () => {
+	const out = transformPaste(
+		'[x](https://other.com/p?utm_source=a&keep=1)',
+		settings({ trackingParamExceptions: 'e.com' })
+	);
+	assert.strictEqual(out.result, '[x](https://other.com/p?keep=1)');
+	assert.strictEqual(out.notice, 'Removed 1 tracking parameter');
 });
 
 // ─────────────────────────────────────────────────────────────────────────

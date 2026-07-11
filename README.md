@@ -35,7 +35,7 @@ Get this:
 ```
 (The `#body` anchor is now kept, because it is a real anchor rather than tracking data.)
 
-The broader list includes some aggressive generic names (`ref`, `tag`, `source`, `campaign`, …). These clean far more, but can occasionally strip a legitimate parameter such as a blog's `?tag=`; turn the rule off if that ever gets in your way.
+The broader list includes some aggressive generic names (`ref`, `tag`, `source`, `campaign`, …). These clean far more, but can occasionally strip a legitimate parameter such as a blog's `?tag=` or a site's `?q=` search. Rather than turning the whole rule off, you can add that site to the **Tracking-parameter exceptions** list (one domain per line or comma-separated) to leave its links untouched. Subdomains are included automatically, so `example.com` also covers `www.example.com`.
 
 ### 3. Clean Amazon product links
 
@@ -49,6 +49,32 @@ Get this:
 ```
 [Strange Houses : Uketsu : Amazon.ca: Books](https://www.amazon.ca/Strange-Houses-Novel-Uketsu/dp/006343315X)
 ```
+
+### 4. Strip notification counts
+
+Many social and messaging sites prefix a browser tab title with a notification/badge count, so a copied link title ends up looking like `(14) Home / X`. When you paste a Markdown link, the plugin removes that count from the title while leaving the URL alone.
+
+The count can be at the start of the title, or embedded as a standalone piece (as Gmail does). Only short counts — up to 3 digits, with an optional trailing `+` — are removed, so a legitimate number like a year in `Blade Runner (2049)` is kept.
+
+Paste this:
+```
+[(14) Home / X](https://x.com/home)
+```
+Get this:
+```
+[Home / X](https://x.com/home)
+```
+
+Or paste this:
+```
+[Inbox (47) - quietbyday@gmail.com - Gmail](https://mail.google.com/mail/u/0/#inbox)
+```
+Get this:
+```
+[Inbox - quietbyday@gmail.com - Gmail](https://mail.google.com/mail/u/0/#inbox)
+```
+
+Because a bare `(N)` could occasionally be a real part of a title, this rule only runs on domains in the **Notification-count domains** whitelist (one per line or comma-separated). It ships with `x.com`, `facebook.com`, `youtube.com`, and `google.com`; add your own, and remove any you don't want. Subdomains are included automatically, so `google.com` also covers `mail.google.com`. If the list is empty, no counts are stripped.
 
 ### Also clean bare URLs (optional)
 
@@ -82,6 +108,11 @@ To update to the latest beta version, go to BRAT and click **Check for updates**
 [Quietbday](https://github.com/quietbyday)
 
 ## Changelog
+
+### 0.3.2 (beta)
+- Added **Strip notification counts**: removes a notification/badge count like `(14)` or `(20+)` from a pasted Markdown link title (e.g. `[(14) Home / X]` → `[Home / X]`, `[Inbox (47) - Gmail]` → `[Inbox - Gmail]`). Handles a count at the start of the title or a standalone one embedded mid-title, strips only the first count, and keeps 4-digit numbers like a year (`(2049)`). On by default; toggle in settings.
+- Added a **Notification-count domains** whitelist for that rule (pre-filled with `x.com`, `facebook.com`, `youtube.com`, `google.com`) — counts are only stripped on listed domains, and an empty list strips nowhere.
+- Added a **Tracking-parameter exceptions** list — domains to leave untouched by the tracking-parameter cleaner, for sites where a query is a real search or reference rather than a tracker. Both lists are subdomain-inclusive.
 
 ### 0.3.1 (beta)
 - Fixed a bug where a converted paste (e.g. a YouTube timestamp link) could be inserted twice, producing a doubled link, when Obsidian dispatched the paste event more than once
