@@ -33,7 +33,7 @@ const { cleanTrackingParams, cleanAmazonUrl, cleanHashFragment } = require(dist(
 const { isTrackingParam } = require(dist('utils/trackingParams.js'));
 const { stripNotificationCount } = require(dist('utils/linkTitle.js'));
 const { parseDomainList, domainMatches } = require(dist('utils/domainList.js'));
-const { transformPaste } = require(dist('utils/transform.js'));
+const { transformPaste, transformText } = require(dist('utils/transform.js'));
 const { migrateSettings, DEFAULT_SETTINGS } = require(dist('settings.js'));
 
 let passed = 0;
@@ -473,6 +473,149 @@ test('transform: bare URL cleaned when toggle ON', () => {
 
 test('transform: non-URL text returns null', () => {
 	assert.strictEqual(transformPaste('just some words', settings()), null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// transformText — bulleted, multi-line, inline, multiple links (Issues 1–3)
+// ─────────────────────────────────────────────────────────────────────────
+
+test('multiline: bulleted markdown link is linted in place (Issue 1)', () => {
+	const out = transformText(
+		'- [KiwiCo](https://www.kiwico.com/x?utm_source=b)',
+		settings()
+	);
+	assert.strictEqual(out.result, '- [KiwiCo](https://www.kiwico.com/x)');
+	assert.strictEqual(out.notice, 'Removed 1 tracking parameter');
+});
+
+test('multiline: indented bullet keeps leading whitespace', () => {
+	const out = transformText(
+		'    - [x](https://e.com/p?utm_source=a&keep=1)',
+		settings()
+	);
+	assert.strictEqual(out.result, '    - [x](https://e.com/p?keep=1)');
+});
+
+test('multiline: two bulleted tabs, summary notice (Issue 2)', () => {
+	const input =
+		'- [A](https://a.com/x?utm_source=a)\n- [B](https://b.com/y?utm_source=b&gclid=z)';
+	const out = transformText(input, settings());
+	assert.strictEqual(
+		out.result,
+		'- [A](https://a.com/x)\n- [B](https://b.com/y)'
+	);
+	assert.strictEqual(
+		out.notice,
+		'Linted 2 of 2 links · removed 3 tracking parameters'
+	);
+});
+
+test('multiline: unchanged lines pass through verbatim', () => {
+	const input =
+		'Some heading\n- [A](https://a.com/x?utm_source=a)\nplain text line';
+	const out = transformText(input, settings());
+	assert.strictEqual(
+		out.result,
+		'Some heading\n- [A](https://a.com/x)\nplain text line'
+	);
+	assert.strictEqual(out.notice, 'Removed 1 tracking parameter');
+});
+
+test('multiline: blank lines and trailing newline preserved', () => {
+	const input = '- [A](https://a.com/x?utm_source=a)\n\n';
+	const out = transformText(input, settings());
+	assert.strictEqual(out.result, '- [A](https://a.com/x)\n\n');
+});
+
+test('inline: two markdown links on one line both cleaned', () => {
+	const out = transformText(
+		'see [A](https://a.com/x?utm_source=a) and [B](https://b.com/y?gclid=z) here',
+		settings()
+	);
+	assert.strictEqual(
+		out.result,
+		'see [A](https://a.com/x) and [B](https://b.com/y) here'
+	);
+	assert.strictEqual(
+		out.notice,
+		'Linted 2 of 2 links · removed 2 tracking parameters'
+	);
+});
+
+test('inline: bare URL in prose only cleaned when cleanBareUrls ON', () => {
+	const input = 'check https://e.com/p?utm_source=a today';
+	assert.strictEqual(transformText(input, settings()), null);
+
+	const out = transformText(input, settings({ cleanBareUrls: true }));
+	assert.strictEqual(out.result, 'check https://e.com/p today');
+	assert.strictEqual(out.notice, 'Removed 1 tracking parameter');
+});
+
+test('inline: trailing punctuation after a bare URL is preserved', () => {
+	const out = transformText(
+		'link: https://e.com/p?utm_source=a.',
+		settings({ cleanBareUrls: true })
+	);
+	assert.strictEqual(out.result, 'link: https://e.com/p.');
+});
+
+test('inline: bare YouTube timestamp converts mid-sentence (not gated)', () => {
+	const out = transformText(
+		'watch https://youtu.be/49V-5Ock8LU?t=115 now',
+		settings()
+	);
+	assert.strictEqual(
+		out.result,
+		'watch [1:55](https://youtu.be/49V-5Ock8LU?t=115) now'
+	);
+	assert.strictEqual(out.notice, 'Linked YouTube timestamp');
+});
+
+test('inline: URL inside a markdown link is not double-processed', () => {
+	// The bare-URL scanner must not touch the URL already inside [..](..).
+	const out = transformText(
+		'[Book](https://www.amazon.ca/Strange/dp/006343315X/ref=asc?tag=x)',
+		settings()
+	);
+	assert.strictEqual(
+		out.result,
+		'[Book](https://www.amazon.ca/Strange/dp/006343315X)'
+	);
+	assert.strictEqual(out.notice, 'Cleaned Amazon link');
+});
+
+test('multiline: mixed rules produce a compound summary', () => {
+	const input =
+		'- [(3) News](https://x.com/p?utm_source=a)\n' +
+		'- [Book](https://www.amazon.ca/S/dp/006343315X/ref=z)';
+	const out = transformText(input, settings());
+	assert.strictEqual(
+		out.result,
+		'- [News](https://x.com/p)\n- [Book](https://www.amazon.ca/S/dp/006343315X)'
+	);
+	assert.strictEqual(
+		out.notice,
+		'Linted 2 of 2 links · removed 1 tracking parameter · stripped 1 notification count · cleaned 1 Amazon link'
+	);
+});
+
+test('multiline: "of N" counts all candidates, changed and not', () => {
+	const input =
+		'- [A](https://a.com/x?utm_source=a)\n- [B](https://b.com/clean)';
+	const out = transformText(input, settings());
+	// 2 links seen, only 1 changed.
+	assert.strictEqual(out.notice, 'Removed 1 tracking parameter');
+	assert.strictEqual(
+		out.result,
+		'- [A](https://a.com/x)\n- [B](https://b.com/clean)'
+	);
+});
+
+test('transformText: nothing to change returns null', () => {
+	assert.strictEqual(
+		transformText('- [A](https://a.com/clean)\njust words', settings()),
+		null
+	);
 });
 
 // ─────────────────────────────────────────────────────────────────────────

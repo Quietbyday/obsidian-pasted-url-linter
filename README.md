@@ -6,6 +6,10 @@ An [Obsidian](https://obsidian.md) plugin that cleans up and formats URLs as you
 
 The plugin watches what you paste and tidies up links automatically. Each rule can be turned on or off in **Settings → Pasted URL Linter** (all are on by default, except *Also clean bare URLs*). Whenever a paste is cleaned, a short notification confirms what happened. Anything the plugin doesn't recognise is pasted normally, untouched.
 
+Links are found **anywhere in a line**, so a bulleted item like `- [title](url)` is cleaned in place, and a **multi-line** paste (for example several browser tabs copied as a bulleted list) has every line linted individually. Multiple links on one line are all processed. When more than one link changes, a single summary notification reports the total, e.g. `Linted 6 of 10 links · removed 14 tracking parameters`.
+
+You can also lint links that are **already in a note**: select the text and run the command **Lint URLs in selected text** (from the command palette, or bind it to a hotkey). It treats the selection exactly like a fresh paste — single-line or multi-line — and replaces it with the cleaned version. With nothing selected it does nothing and says so.
+
 ### 1. Convert YouTube timestamp links
 
 When you paste a YouTube URL that includes a timestamp, the plugin replaces the raw URL with a Markdown link. The link text shows the timestamp in a human-readable format, while the URL remains intact so the link still takes you directly to that point in the video.
@@ -108,6 +112,12 @@ To update to the latest beta version, go to BRAT and click **Check for updates**
 [Quietbday](https://github.com/quietbyday)
 
 ## Changelog
+
+### 0.4.0 (beta)
+- Links are now detected **anywhere in a line**, not only when the paste is one whole link — so a bulleted Markdown link (`- [title](url)`) is cleaned in place, and multiple links on a line are all processed.
+- **Multi-line pastes** are linted line by line, so copying several browser tabs as a bulleted list now cleans every link. A single summary notification reports the total when more than one link changes.
+- Added a command, **Lint URLs in selected text**, that lints the current selection as if it were freshly pasted (single- or multi-line) — for tidying links already in a note without cut-and-re-paste. With nothing selected it shows a brief "No text selected" notice.
+- Inline bare `http(s)://` URLs sitting inside other text are now cleaned too when **Also clean bare URLs** is on (YouTube-timestamp conversion applies inline regardless).
 
 ### 0.3.2 (beta)
 - Added **Strip notification counts**: removes a notification/badge count like `(14)` or `(20+)` from a pasted Markdown link title (e.g. `[(14) Home / X]` → `[Home / X]`, `[Inbox (47) - Gmail]` → `[Inbox - Gmail]`). Handles a count at the start of the title or a standalone one embedded mid-title, strips only the first count, and keeps 4-digit numbers like a year (`(2049)`). On by default; toggle in settings.

@@ -5,7 +5,7 @@ import {
 	PastedUrlLinterSettingTab,
 	migrateSettings,
 } from './settings';
-import { transformPaste } from './utils/transform';
+import { transformText } from './utils/transform';
 
 export default class PastedUrlLinterPlugin extends Plugin {
 	settings: PastedUrlLinterSettings;
@@ -23,6 +23,29 @@ export default class PastedUrlLinterPlugin extends Plugin {
 				}
 			)
 		);
+
+		this.addCommand({
+			id: 'lint-urls-in-selection',
+			name: 'Lint URLs in selected text',
+			editorCallback: (editor: Editor) => this.lintSelection(editor),
+		});
+	}
+
+	private lintSelection(editor: Editor): void {
+		const selection = editor.getSelection();
+		if (!selection) {
+			new Notice('No text selected');
+			return;
+		}
+
+		const transformed = transformText(selection, this.settings);
+		if (transformed === null) {
+			new Notice('No links to lint');
+			return;
+		}
+
+		editor.replaceSelection(transformed.result);
+		new Notice(transformed.notice);
 	}
 
 	private handlePaste(evt: ClipboardEvent, editor: Editor): void {
@@ -37,7 +60,7 @@ export default class PastedUrlLinterPlugin extends Plugin {
 
 		const text = evt.clipboardData?.getData('text/plain') ?? '';
 
-		const transformed = transformPaste(text, this.settings);
+		const transformed = transformText(text, this.settings);
 		if (transformed === null) {
 			return;
 		}
